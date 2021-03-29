@@ -217,4 +217,6 @@ class SqlQueries:
             );
     """)
     
+
+    
     

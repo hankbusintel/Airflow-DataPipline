@@ -13,20 +13,25 @@ from helpers import SqlQueries
 
 # AWS_KEY = os.environ.get('AWS_KEY')
 # AWS_SECRET = os.environ.get('AWS_SECRET')
-"""
+
 default_args = {
     'owner': 'udacity',
-    'start_date': datetime(2021, 3, 29),
+    'retries': 1,
+    'retry_delay': timedelta(minutes=1),
+    'depends_on_past': False,
+    'start_date':datetime.now(),
+    'catchup_by_default ': False
 }
-"""
+
 
 dag = DAG('udac_dag',
-          #description='Load and transform data in Redshift with Airflow',
-          start_date=datetime.now()
+          description='Load and transform data in Redshift with Airflow',
+          default_args=default_args,
+          schedule_interval='@hourly'
         )
 
 start_operator = DummyOperator(task_id='Begin_execution',  dag=dag)
-"""
+
 create_sparkify_table = PostgresOperator(
     task_id="create_sparkify_table",
     dag=dag,
@@ -87,7 +92,7 @@ load_artist_dimension_table = LoadDimensionOperator(
     dag=dag,
     redshift_conn_id="redshift",
     sql=SqlQueries.artist_table_insert
-)"""
+)
 
 load_time_dimension_table = LoadDimensionOperator(
     task_id='Load_time_dim_table',
@@ -95,18 +100,21 @@ load_time_dimension_table = LoadDimensionOperator(
     redshift_conn_id="redshift",
     sql=SqlQueries.time_table_insert
 )
-"""
+
 run_quality_checks = DataQualityOperator(
     task_id='Run_data_quality_checks',
-    dag=dag
+    dag=dag,
+    redshift_conn_id="redshift"
 )
 
-end_operator = DummyOperator(task_id='Stop_execution',  dag=dag)
-"""
-#start_operator>>create_sparkify_table
-start_operator>>load_time_dimension_table
 
-"""load_songplays_table>>load_user_dimension_table
+
+end_operator = DummyOperator(task_id='Stop_execution',  dag=dag)
+
+#start_operator>>create_sparkify_table
+#start_operator>>run_quality_checks
+
+
 start_operator>>create_sparkify_table
 create_sparkify_table>>stage_events_to_redshift
 create_sparkify_table>>stage_songs_to_redshift
@@ -121,4 +129,4 @@ load_user_dimension_table>>run_quality_checks
 load_artist_dimension_table>>run_quality_checks
 load_time_dimension_table>>run_quality_checks
 run_quality_checks>>end_operator
-"""
+
