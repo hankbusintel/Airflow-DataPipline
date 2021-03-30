@@ -20,7 +20,7 @@ default_args = {
     'retry_delay': timedelta(minutes=1),
     'depends_on_past': False,
     'start_date':datetime.now(),
-    'catchup_by_default ': False
+    'catchup ': False
 }
 
 
@@ -48,7 +48,10 @@ stage_events_to_redshift = StageToRedshiftOperator(
     s3_bucket=Variable.get('s3_bucket'),
     s3_prefix="log_data",
     iam_role=Variable.get('iam_role'),
-    js_format="s3://udacity-dend/log_json_path.json"
+    js_format="s3://udacity-dend/log_json_path.json",
+    sql=Variable.get('sql_copy'),
+    region="us-west-2",
+    log="Start Copying event Json data from S3 to Redshift."
 )
 
 
@@ -61,21 +64,27 @@ stage_songs_to_redshift = StageToRedshiftOperator(
     s3_bucket=Variable.get('s3_bucket'),
     s3_prefix="song_data",
     iam_role=Variable.get('iam_role'),
-    js_format="auto"
+    js_format="auto",
+    sql=Variable.get('sql_copy'),
+    region="us-west-2",
+    log="Start Copying songs Json data from S3 to Redshift."
 )
 
 load_songplays_table = LoadFactOperator(
     task_id='Load_songplays_fact_table',
     dag=dag,
     redshift_conn_id="redshift",
-    sql=SqlQueries.songplay_table_insert
+    sql=SqlQueries.songplay_table_insert,
+    log="Loading Fact songplays table from staging event table."
 )
 
 load_user_dimension_table = LoadDimensionOperator(
     task_id='Load_user_dim_table',
     dag=dag,
     redshift_conn_id="redshift",
-    sql=SqlQueries.user_table_insert
+    sql=SqlQueries.user_table_insert,
+    log="Loading user table from staging event table.",
+    isAppend=True
 )
 
 
@@ -83,7 +92,9 @@ load_song_dimension_table = LoadDimensionOperator(
     task_id='Load_song_dim_table',
     dag=dag,
     redshift_conn_id="redshift",
-    sql=SqlQueries.song_table_insert
+    sql=SqlQueries.song_table_insert,
+    log="Loading songs table from staging song table.",
+    isAppend=True
 )
 
 
@@ -91,28 +102,34 @@ load_artist_dimension_table = LoadDimensionOperator(
     task_id='Load_artist_dim_table',
     dag=dag,
     redshift_conn_id="redshift",
-    sql=SqlQueries.artist_table_insert
+    sql=SqlQueries.artist_table_insert,
+    log="Loading artist table from staging song table.",
+    isAppend=False
 )
 
 load_time_dimension_table = LoadDimensionOperator(
     task_id='Load_time_dim_table',
     dag=dag,
     redshift_conn_id="redshift",
-    sql=SqlQueries.time_table_insert
+    sql=SqlQueries.time_table_insert,
+    log="Loading time table from staging event table.",
+    isAppend=False
 )
+
 
 run_quality_checks = DataQualityOperator(
     task_id='Run_data_quality_checks',
     dag=dag,
-    redshift_conn_id="redshift"
+    redshift_conn_id="redshift",
+    log="Start checking data quality for songplays table.",
+    db_check=Variable.get('db_check')
 )
 
 
 
 end_operator = DummyOperator(task_id='Stop_execution',  dag=dag)
 
-#start_operator>>create_sparkify_table
-#start_operator>>run_quality_checks
+
 
 
 start_operator>>create_sparkify_table

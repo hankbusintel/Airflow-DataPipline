@@ -2,30 +2,42 @@ from airflow.hooks.postgres_hook import PostgresHook
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 import logging
+import json
 
 class DataQualityOperator(BaseOperator):
 
     ui_color = '#89DA59'
-    data_quality=("""
-        SELECT COUNT(*) FROM songplays
-        WHERE (songid = '') IS NOT FALSE OR
-        (artistid = '') IS NOT FALSE OR
-        (CAST(userid as VARCHAR) = '') IS NOT FALSE 
-    """)
+
     
     @apply_defaults
     def __init__(self,
                  redshift_conn_id="",
+                 log="",
+                 db_check="",
                  *args, **kwargs):
 
         super(DataQualityOperator, self).__init__(*args, **kwargs)
         self.redshift_conn_id = redshift_conn_id
-
-    def execute(self, context):
-        #self.log.info('DataQualityOperator not implemented yet')
-        redshift = PostgresHook(postgres_conn_id=self.redshift_conn_id)
-        records = redshift.get_records(DataQualityOperator.data_quality)
+        self.logging=log
+        self.db_check=db_check
+    
+    def checkdbresult(self,redshift,sql,expect_result):
+        records = redshift.get_records(sql)
         num_records = records[0][0]
-        if num_records > 0 :
-            raise ValueError(f"Data quality check failed. There are {num_records} 'null' in songplays table")
-        logging.info(f"Data quality on table check with {num_records} records")
+        if num_records == expect_result:
+            logging.info("Check cases passed.")
+        else:           
+            raise ValueError(f"Check Faield. There are {num_records} 'null' in the table. \
+                         Expected value is {expect_result}")
+        
+    def execute(self, context):
+        logging.info(self.logging)
+        redshift = PostgresHook(postgres_conn_id=self.redshift_conn_id)
+        db_check = list(self.db_check.split("|"))
+        for item in db_check:
+            jsonitem=json.loads(item)
+            sql= jsonitem["check_sql"]
+            expect_result=jsonitem["expected_result"]
+            logging.info(f"checking query: {sql} ")
+            self.checkdbresult(redshift,sql,expect_result)  
+      

@@ -24,6 +24,9 @@ class StageToRedshiftOperator(BaseOperator):
                  s3_bucket="",
                  s3_prefix="",
                  iam_role="",
+                 sql="",
+                 region="",
+                 log="",
                  *args, **kwargs):
 
         super(StageToRedshiftOperator, self).__init__(*args, **kwargs)
@@ -34,25 +37,28 @@ class StageToRedshiftOperator(BaseOperator):
         self.iam_role=iam_role
         self.aws_credentials_id = aws_credentials_id
         self.js_format=js_format
+        self.sql=sql
+        self.region=region
+        self.logging=log
         
 
         
         
     def execute(self, context):
-        #self.log.info('StageToRedshiftOperator not implemented yet')
-        #self.log.info("AWS credentials: "+self.aws_credentials_id)
-        #self.log.info("redshift: "+self.redshift_conn_id)
+        logging.info(self.logging)
         aws_hook = AwsHook(self.aws_credentials_id)
         credentials = aws_hook.get_credentials()
         redshift = PostgresHook(postgres_conn_id=self.redshift_conn_id)
-        formatted_sql = StageToRedshiftOperator.sql_copy.format(
+        formatted_sql = self.sql.format(
             self.table,
             self.s3_bucket,
             self.s3_prefix,
             self.iam_role,
-            self.js_format
+            self.js_format,
+            self.region
         )
         #self.log.info(formatted_sql)
         redshift.run(formatted_sql)
+        logging.info("Success")
 
 
